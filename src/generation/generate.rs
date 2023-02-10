@@ -7052,10 +7052,11 @@ where
   } else {
     context.config.arguments_prefer_hanging
   };
+  let program = context.program;
   let prefer_hanging = match prefer_hanging_config {
     PreferHanging::Never => false,
-    PreferHanging::OnlySingleItem => only_single_item_and_no_comments(&nodes, context.program),
-    PreferHanging::Always => true,
+    PreferHanging::OnlySingleItem => nodes.len() == 1 && !has_comments(&nodes[0], program),
+    PreferHanging::Always => !nodes.iter().any(|node| has_comments(node, program)),
   };
   let prefer_single_item_hanging = prefer_hanging_config == PreferHanging::OnlySingleItem && prefer_hanging;
   let prefer_single_line = prefer_single_item_hanging
@@ -7078,6 +7079,11 @@ where
     |context| {
       let mut items = PrintItems::new();
 
+      // Always break up single argument lambdas with expression bodies in hanging mode. E.g.
+      // E.g. This example would always be hanging like so:
+      // line width         |
+      // funcCall(() => an   
+      //   + expression);
       if !force_use_new_lines && nodes.len() == 1 && is_arrow_function_with_expr_body(nodes[0]) {
         let start_ln = LineNumber::new("startArrow");
         let start_lsil = LineStartIndentLevel::new("startArrow");
@@ -7110,11 +7116,8 @@ where
             single_line_space_at_start: space_around,
             single_line_space_at_end: space_around,
             custom_single_line_separator: None,
-            multi_line_options: if prefer_single_item_hanging {
-              MultiLineOptions::maintain_line_breaks(0)
-            } else {
-              MultiLineOptions::surround_newlines_indented(multi_line_indent_times, hanging_indent_times)
-            },
+            // If we end up in multiline mode, print `call(\n...\n)`
+            multi_line_options: MultiLineOptions::surround_newlines_indented(multi_line_indent_times, hanging_indent_times),
             force_possible_newline_at_start: is_parameters,
             node_sorter: None,
           },
@@ -7177,19 +7180,15 @@ where
     }
   }
 
-  fn only_single_item_and_no_comments(nodes: &[Node], program: &Program) -> bool {
-    if nodes.len() != 1 {
-      return false;
-    }
+  fn has_comments(node: &Node, program: &Program) -> bool {
     // check for leading or trailing comments on the only child node
-    let child = nodes[0];
-    if !child.leading_comments_fast(program).is_empty() || !child.trailing_comments_fast(program).is_empty() {
-      return false;
+    if !node.leading_comments_fast(program).is_empty() || !node.trailing_comments_fast(program).is_empty() {
+      return true;
     }
     // search after the trailing comma if it exists
-    match child.next_token_fast(program) {
-      Some(TokenAndSpan { token: Token::Comma, span, .. }) => span.trailing_comments_fast(program).is_empty(),
-      _ => true,
+    match node.next_token_fast(program) {
+      Some(TokenAndSpan { token: Token::Comma, span, .. }) => !span.trailing_comments_fast(program).is_empty(),
+      _ => false,
     }
   }
 }
@@ -7394,8 +7393,8 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
   }
 
   ir_helpers::gen_separated_values(
-    |is_multi_line_or_hanging_ref| {
-      let is_multi_line_or_hanging = is_multi_line_or_hanging_ref.create_resolver();
+    |is_multi_line_ref| {
+      let is_multi_line = is_multi_line_ref.create_resolver();
       let mut generated_nodes = Vec::new();
       let nodes_count = nodes.len();
       let sorted_indexes = node_sorter.map(|sorter| get_sorted_indexes(nodes.iter().map(|d| d.as_node()), sorter, context));
@@ -7427,7 +7426,7 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
             panic!("Unsupported scenario.")
           }
         } else {
-          let generated_separator = get_generated_separator(&separator, node_index == nodes_count - 1, &is_multi_line_or_hanging);
+          let generated_separator = get_generated_separator(&separator, node_index == nodes_count - 1, &is_multi_line);
           match value {
             NodeOrSeparator::Node(value) => gen_node_with_separator(value, generated_separator, context),
             NodeOrSeparator::Separator(separator_token) => {
@@ -7443,15 +7442,22 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
         };
 
         let use_new_line_group = match value {
-          // Prefer going inline multi-line for certain expressions in arguments
-          // when initially single line.
-          // Example: call({\n}) instead of call(\n  {\n  }\n)
-          NodeOrSeparator::Node(Node::ExprOrSpread(expr_or_spread)) => !matches!(expr_or_spread.expr, Expr::Object(_) | Expr::Array(_)),
+          // Prefer hanging mode for certain expressions in arguments when initially single line.
+          NodeOrSeparator::Node(Node::ExprOrSpread(expr_or_spread)) => !matches!(expr_or_spread.expr,
+            // call({\n...\n}) instead of call(\n{...}\n)
+            | Expr::Object(_)
+            // call([\n...\n]) instead of call(\n[...]\n)
+            | Expr::Array(_)
+            // call(call(\n...\n)) instead of call(\ncall(...)\n)
+            | Expr::Call(_)
+            // call(new\nthing(...)) or call(new thing(\n...\n)) instead of call(\nnew thing(...)\n)
+            | Expr::New(_))
+            ,
           _ => true,
         };
-
+        let argument_with_potential_new_line_group = if use_new_line_group { ir_helpers::new_line_group(items) } else { items };
         generated_nodes.push(ir_helpers::GeneratedValue {
-          items: if use_new_line_group { ir_helpers::new_line_group(items) } else { items },
+          items: argument_with_potential_new_line_group.into(),
           lines_span,
           allow_inline_multi_line,
           allow_inline_single_line,
