@@ -70,8 +70,7 @@ foo(x => somethingOrRather);
 
 [expect]
 foo(x =>
-        somethingOrRather
-);
+        somethingOrRather);
 
 == should indent a hanging extends / implements clause twice ==
 class SomeClass extends B { }
