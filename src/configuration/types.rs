@@ -293,6 +293,23 @@ generate_str_to_from![
   [CaseInsensitive, "caseInsensitive"]
 ];
 
+// When to allow inlining separated values that are inside a separated values.
+// See src/generation/generate.rs in the definition of `fn allows_inline_multi_line`.
+#[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum InlineSeparatedValuesAllowedForMultiLineValuesWhen {
+  Default,
+  ValuesDoNotContainMultipleSeparatedValues,
+  Never,
+}
+
+generate_str_to_from![
+  InlineSeparatedValuesAllowedForMultiLineValuesWhen,
+  [Default, "default"],
+  [ValuesDoNotContainMultipleSeparatedValues, "valuesDoNotContainMultipleSeparatedValues"],
+  [Never, "never"]
+];
+
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Configuration {
@@ -326,6 +343,8 @@ pub struct Configuration {
   pub type_literal_separator_kind_single_line: SemiColonOrComma,
   #[serde(rename = "typeLiteral.separatorKind.multiLine")]
   pub type_literal_separator_kind_multi_line: SemiColonOrComma,
+  #[serde(rename = "separatedValues.allowInlineWhenValuesAreMultiLine")]
+  pub separated_values_allow_inline_when_values_are_multi_line: InlineSeparatedValuesAllowedForMultiLineValuesWhen,
   /* sorting */
   #[serde(rename = "module.sortImportDeclarations")]
   pub module_sort_import_declarations: SortOrder,

@@ -1,0 +1,156 @@
+~~ lineWidth: 30, indentWidth: 4, separatedValues.allowInlineWhenValuesAreMultiLine: valuesDoNotContainMultipleSeparatedValues, preferSingleLine: true ~~
+== debug ==
+functionCall( { a: "objectLike" }, ["arrayLike"],);
+
+[expect]
+functionCall(
+    { a: "objectLike" },
+    ["arrayLike"],
+);
+
+== if the child separated-values nodes are inline (because it doesn't line break) then the parent separated-values node is not forced to multi-line ==
+// array
+a = [{ b }, { c }];
+// array destructure
+const [{ b }, { c }] = a;
+// object
+a = { a: { b }, c: { d } };
+// object destructure
+const { a: { b }, c: { d } } =
+    a;
+// object type
+type A = { b: B } | { c: C };
+// call
+f({ g }, { h });
+
+[expect]
+// array
+a = [{ b }, { c }];
+// array destructure
+const [{ b }, { c }] = a;
+// object
+a = { a: { b }, c: { d } };
+// object destructure
+const { a: { b }, c: { d } } =
+    a;
+// object type
+type A = { b: B } | { c: C };
+// call
+f({ g }, { h });
+
+== outer separated values should be multi-line when it contains two or more values that are each separated-values ==
+// array
+array = [{small: "object"}, {small2: "object"}];
+const [{small}, {small2}] = array;
+
+// call expression with inline values
+functionCall({a: "objectLike",
+    }, [ "arrayLike" ]);
+// call expression with multi-line values
+foo({ hello: "world", foo: "bar" }, { hello: "world", foo: "bar", });
+
+[expect]
+// array
+array = [
+    { small: "object" },
+    { small2: "object" },
+];
+const [
+    { small },
+    { small2 },
+] = array;
+
+// call expression with inline values
+functionCall(
+    {
+        a: "objectLike",
+    },
+    ["arrayLike"],
+);
+// call expression with multi-line values
+foo(
+    {
+        hello: "world",
+        foo: "bar",
+    },
+    {
+        hello: "world",
+        foo: "bar",
+    },
+);
+
+== call expression should be multi-line if the arguments contain multiple values which are separated-values ==
+// the call expression is multi-line but each argument is small enough to be inline
+functionCall({a: "objectLike",
+    }, [ "arrayLike" ]);
+// the call expression is multi-line and each argument is big enough to be multi-line
+foo( {
+    hello: "world", foo: "bar"
+}, { 
+    hello: "world", foo: "bar",
+});
+
+[expect]
+// the call expression is multi-line but each argument is small enough to be inline
+functionCall(
+    { a: "objectLike" },
+    ["arrayLike"],
+);
+// the call expression is multi-line and each argument is big enough to be multi-line
+foo(
+    {
+        hello: "world",
+        foo: "bar",
+    },
+    {
+        hello: "world",
+        foo: "bar",
+    },
+);
+
+
+== arguments should not be multiline if they only contain a single value which is separated-values (they should be inline or hanging instead) ==
+// inline
+functionCall({a: "small"});
+// hanging
+functionCall({a: "objectLike"}, b);
+
+[expect]
+// inline
+functionCall({ a: "small" });
+// hanging
+functionCall({
+    a: "objectLike",
+}, b);
+
+== arrays (and array destructures) should be multiline if they exceed line width and contain multiple values which are separated-values ==
+// FIX THIS UP ONM MONDAY, THEN ADD ANALOGOUS TESTS FOR OTHER SEPARATED VALUES TOO
+const someArray = [[ "apple" ], ["banana"]];
+const [[bigbigapple,bigbigbanana,bigbigcrab],[a,b],c] = someArray;
+
+[expect]
+const someArray = [
+    ["apple"],
+    ["banana"],
+];
+const [
+    [
+        bigbigapple,
+        bigbigbanana,
+        bigbigcrab,
+    ],
+    [a, b],
+    c,
+] = someArray;
+
+== arrays should not be multiline if they contain only a single value which is separated-values ==
+const s = ["hang", [ "multiline", ]];
+const t = [[ "multi-line in hanging" ]];
+
+[expect]
+const s = ["hang", [
+    "multiline",
+]];
+const t = [[
+    "multi-line in hanging",
+]];
