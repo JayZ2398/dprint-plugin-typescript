@@ -499,6 +499,25 @@
         }
       ]
     },
+    "separatedValues.multiLine.allowNestedSeparatedValuesToBeInline": {
+      "description": "When a separated values node (array, arguments, object, etc.) is allowed to be inline.",
+      "type": "string",
+      "default": "default",
+      "oneOf": [
+        {
+          "const": "default",
+          "description": "A separated values node is allowed to be inline if its children are."
+        },
+        {
+          "const": "noSeparatedValueSiblings",
+          "description": "A separated values node is allowed to be inline if it does not have more than one value that is also a separated values node. Ex. `[\n[\n1,\n2,\n],\n[\n3\n4\n]\n]`"
+        },
+        {
+          "const": "never",
+          "description": "A separated values node will never be inline, regardless of what values it contains. It will still be inline if it contains no members. Ex. `[\n[\n1,\n2,\n]\n]`"
+        }
+      ]
+    },
     "spaceAround": {
       "description": "Whether to place spaces around enclosed expressions.",
       "type": "boolean",

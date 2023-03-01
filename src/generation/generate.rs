@@ -1860,7 +1860,6 @@ fn gen_await_expr<'a>(node: &'a AwaitExpr, context: &mut Context<'a>) -> PrintIt
 fn gen_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   let flattened_binary_expr = get_flattened_bin_expr(node, context);
-  // println!("Bin expr: {:?}", flattened_binary_expr.iter().map(|x| x.expr.text(context)).collect::<Vec<_>>());
   let line_per_expression = context.config.binary_expression_line_per_expression;
   let force_use_new_lines = !context.config.binary_expression_prefer_single_line
     && node_helpers::get_use_new_lines_for_nodes(
@@ -6030,10 +6029,25 @@ fn gen_union_or_intersection_type<'a>(node: UnionOrIntersectionType<'a>, context
       let is_multi_line_or_hanging = is_multi_line_or_hanging_ref.create_resolver();
       let types_count = node.types.len();
       let mut generated_nodes = Vec::new();
+      let object_array_like_nodes_count = node.types.iter().filter(|n| is_object_or_array_like_type_node(n)).count();
+      let fn_like_nodes_count = node.types.iter().filter(|n| is_fn_like_type_node(n)).count();
       for (i, type_node) in node.types.iter().enumerate() {
         let (allow_inline_multi_line, allow_inline_single_line) = {
           let is_last_value = i + 1 == types_count; // allow the last type to be single line
-          (allows_inline_multi_line(type_node.into(), context, types_count > 1), is_last_value)
+          (
+           match context.config.separated_values_allow_inline_when_values_are_multi_line {
+            InlineSeparatedValuesAllowedForMultiLineValuesWhen::Default => allows_inline_multi_line(type_node.into(), context, types_count > 1, &None),
+            InlineSeparatedValuesAllowedForMultiLineValuesWhen::Never => false,
+            InlineSeparatedValuesAllowedForMultiLineValuesWhen::ValuesDoNotContainMultipleSeparatedValues => {
+            let opts = Some(SiblingsInfo {
+              has_fn_siblings: fn_like_nodes_count > 1,
+              has_object_or_array_like_siblings: object_array_like_nodes_count > 1
+            });
+            allows_inline_multi_line(type_node.into(), context, types_count > 1, &opts)
+            }
+           },
+           is_last_value
+          )
         };
         let separator_token = context.token_finder.get_previous_token_if_operator(&type_node.range(), separator);
         let start_lc = LineAndColumn::new("start");
@@ -6099,6 +6113,14 @@ fn gen_union_or_intersection_type<'a>(node: UnionOrIntersectionType<'a>, context
       Node::TsParenthesizedType(paren_type) => !should_skip_parenthesized_type(paren_type, context),
       _ => false,
     }
+  }
+
+  fn is_object_or_array_like_type_node(node: &TsType) -> bool {
+    matches!(node, TsType::TsTypeLit(_) | TsType::TsTupleType(_) | TsType::TsArrayType(_))
+  }
+
+  fn is_fn_like_type_node(node: &TsType) -> bool {
+    matches!(node, TsType::TsFnOrConstructorType(_))
   }
 }
 
@@ -7090,7 +7112,6 @@ where
           single_line_space_at_start: space_around,
           single_line_space_at_end: space_around,
           custom_single_line_separator: None,
-          // If we end up in multiline mode, print `call(\n...\n)`
           multi_line_options: MultiLineOptions::surround_newlines_indented(multi_line_indent_times, hanging_indent_times),
           force_possible_newline_at_start: is_parameters,
           node_sorter: None,
@@ -7365,11 +7386,13 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
     panic!("Not implemented scenario. Cannot computed lines span and allow blank lines");
   }
 
-  ir_helpers::gen_separated_values(
+  return ir_helpers::gen_separated_values(
     |is_multi_line_ref| {
       let is_multi_line = is_multi_line_ref.create_resolver();
       let mut generated_nodes = Vec::new();
       let nodes_count = nodes.len();
+      let fn_nodes_count = nodes.iter().filter(|n| is_fn_or_arrow_expr(n)).count();
+      let object_array_like_nodes_count = nodes.iter().filter(|n| is_object_or_array_like_node(n)).count();
       let sorted_indexes = node_sorter.map(|sorter| get_sorted_indexes(nodes.iter().map(|d| d.as_node()), sorter, context));
 
       for (i, value) in nodes.into_iter().enumerate() {
@@ -7379,7 +7402,17 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
         };
         let (allow_inline_multi_line, allow_inline_single_line) = if let NodeOrSeparator::Node(value) = value {
           let is_last_value = node_index + 1 == nodes_count; // allow the last node to be single line
-          (allows_inline_multi_line(value, context, nodes_count > 1), is_last_value)
+          (
+            match context.config.separated_values_allow_inline_when_values_are_multi_line {
+              InlineSeparatedValuesAllowedForMultiLineValuesWhen::Default => allows_inline_multi_line(value, context, nodes_count > 1, &None),
+              InlineSeparatedValuesAllowedForMultiLineValuesWhen::Never => false,
+              InlineSeparatedValuesAllowedForMultiLineValuesWhen::ValuesDoNotContainMultipleSeparatedValues => {
+                let opts = Some(SiblingsInfo { has_fn_siblings: fn_nodes_count > 1, has_object_or_array_like_siblings: object_array_like_nodes_count > 1 });
+                allows_inline_multi_line(value, context, nodes_count > 1, &opts)
+              }
+            },
+            is_last_value
+          )
         } else {
           (false, false)
         };
@@ -7426,13 +7459,12 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
             // call(() =>\n...\n) instead of call(\n() => ...\n)
             | Expr::Arrow(_)
             // call(new\nthing(...)) or call(new thing(\n...\n)) instead of call(\nnew thing(...)\n)
-            | Expr::New(_))
-            ,
+            | Expr::New(_)
+          ),
           _ => true,
         };
-        let argument_with_potential_new_line_group = if use_new_line_group { ir_helpers::new_line_group(items) } else { items };
         generated_nodes.push(ir_helpers::GeneratedValue {
-          items: argument_with_potential_new_line_group.into(),
+          items: if use_new_line_group {ir_helpers::new_line_group(items)} else {items},
           lines_span,
           allow_inline_multi_line,
           allow_inline_single_line,
@@ -7455,7 +7487,37 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
       multi_line_options: opts.multi_line_options,
       force_possible_newline_at_start: opts.force_possible_newline_at_start,
     },
-  )
+  );
+
+  fn is_fn_or_arrow_expr(node: &NodeOrSeparator) -> bool {
+    match node.as_node() {
+      Some(node) => {
+        match node {
+          Node::FnExpr(_) | Node::ArrowExpr(_) => true,
+          Node::ExprOrSpread(node) => is_fn_or_arrow_expr(&NodeOrSeparator::Node(node.expr.into())),
+          _ => false,
+        }
+      },
+      _ => false,
+    }
+  }
+
+  fn is_object_or_array_like_node(node: &NodeOrSeparator) -> bool {
+    match node.as_node() {
+      Some(node) => {
+        match node {
+          // We don't count empty arrays and objects
+          Node::ObjectLit(n) => n.props.len() > 0,
+          Node::ObjectPat(n) => n.props.len() > 0,
+          Node::ArrayLit(n) => n.elems.len() > 0,
+          Node::ArrayPat(n) => n.elems.len() > 0,
+          Node::ExprOrSpread(node) => is_object_or_array_like_node(&NodeOrSeparator::Node(node.expr.into())),
+          _ => false,
+        }
+      },
+      _ => false,
+    }
+  }
 }
 
 fn get_sorted_indexes<'a: 'b, 'b>(
@@ -9214,40 +9276,82 @@ fn surround_with_parens(items: PrintItems) -> PrintItems {
 
 /* is/has functions */
 
-fn allows_inline_multi_line(node: Node, context: &Context, has_siblings: bool) -> bool {
+#[derive(Clone)]
+struct SiblingsInfo {
+  has_fn_siblings: bool,
+  has_object_or_array_like_siblings: bool,
+}
+
+/// Returns true if node is allowed to be formatted as inline if it is inside a multiline parent node.
+/// # Arguments
+/// * `options` - Specific information about the types of siblings that `node` has. For example, whether a node passed as an argument to a function has sibling arguments that are functions.
+///               If `options` is `None`, then we don't care about what types of siblings that `node` has when determining if it can be inline.
+/// 
+/// # Explanation
+/// We say a child node within a parent node is formatted as "inline multi-line" if both
+/// 1. the parent is formatted multi-line; and
+/// 2. the child is formatted inline
+/// 
+/// # Example
+/// 
+/// In the following example:
+/// 1. The lambda and object nodes are inline multi-line because they are each inline and the parent call expression node is multi-line.
+/// 2. The string literal argument is not inline multi-line because it only supports inline formatting.
+///    The string literal cannot be formatted over multiple lines in either hanging or multi-line mode.
+///    Nodes that only support inline, such as string literals, always match to `false` in this function.
+/// 
+/// ```typescript
+/// functionCall(
+///   () => "inline",
+///   {a: "inline"},
+///   "inline",
+/// );
+/// ```
+///
+fn allows_inline_multi_line(node: Node, context: &Context, has_siblings: bool, options: &Option<SiblingsInfo>) -> bool {
   return match node {
-    Node::Param(param) => allows_inline_multi_line(param.pat.into(), context, has_siblings),
+    Node::Param(param) => allows_inline_multi_line(param.pat.into(), context, has_siblings, options),
     Node::TsAsExpr(as_expr) => {
-      allows_inline_multi_line(as_expr.expr.into(), context, has_siblings)
+      allows_inline_multi_line(as_expr.expr.into(), context, has_siblings, options)
         && match as_expr.type_ann {
           TsType::TsTypeRef(_) | TsType::TsKeywordType(_) => true,
-          _ => allows_inline_multi_line(as_expr.type_ann.into(), context, has_siblings),
+          _ => allows_inline_multi_line(as_expr.type_ann.into(), context, has_siblings, options),
         }
     }
-    Node::FnExpr(_)
-    | Node::ArrowExpr(_)
-    | Node::ObjectLit(_)
-    | Node::ArrayLit(_)
-    | Node::ObjectPat(_)
-    | Node::ArrayPat(_)
-    | Node::TsTypeLit(_)
-    | Node::TsTupleType(_)
-    | Node::TsArrayType(_) => true,
-    Node::ExprOrSpread(node) => allows_inline_multi_line(node.expr.into(), context, has_siblings),
-    Node::ParenExpr(node) => should_skip_paren_expr(node, context) && allows_inline_multi_line(node.expr.into(), context, has_siblings),
+    Node::ExprOrSpread(node) => allows_inline_multi_line(node.expr.into(), context, has_siblings, options),
+    Node::ParenExpr(node) => should_skip_paren_expr(node, context) && allows_inline_multi_line(node.expr.into(), context, has_siblings, options),
     Node::TaggedTpl(_) | Node::Tpl(_) => !has_siblings,
     Node::CallExpr(node) => !has_siblings && allow_inline_for_call_expr(node.into()),
     Node::OptCall(node) => !has_siblings && allow_inline_for_call_expr(node.into()),
     Node::BindingIdent(node) => match &node.type_ann {
-      Some(type_ann) => allows_inline_multi_line(type_ann.type_ann.into(), context, has_siblings),
+      Some(type_ann) => allows_inline_multi_line(type_ann.type_ann.into(), context, has_siblings, options),
       None => false,
     },
     Node::AssignPat(node) => {
-      allows_inline_multi_line(node.left.into(), context, has_siblings) || allows_inline_multi_line(node.right.into(), context, has_siblings)
+      allows_inline_multi_line(node.left.into(), context, has_siblings, options) || allows_inline_multi_line(node.right.into(), context, has_siblings, options)
     }
-    Node::TsTypeAnn(type_ann) => allows_inline_multi_line(type_ann.type_ann.into(), context, has_siblings),
-    Node::TsTupleElement(tuple_element) => allows_inline_multi_line(tuple_element.ty.into(), context, has_siblings),
-    _ => false,
+    Node::TsTypeAnn(type_ann) => allows_inline_multi_line(type_ann.type_ann.into(), context, has_siblings, options),
+    Node::TsTupleElement(tuple_element) => allows_inline_multi_line(tuple_element.ty.into(), context, has_siblings, options),
+    // Cases that actually depend on the `options` argument
+    node => {
+      let opts = match options {
+        None => SiblingsInfo { has_fn_siblings: false, has_object_or_array_like_siblings: false },
+        Some(options) => options.clone(),
+      };
+      match node {
+        // Only allow inline multiline for functions / arrow expressions if none of the
+        // siblings are also functions or arrow expressions.
+        Node::FnExpr(_) | Node::ArrowExpr(_) => !opts.has_fn_siblings,
+        Node::ObjectLit(_)
+        | Node::ArrayLit(_)
+        | Node::ObjectPat(_)
+        | Node::ArrayPat(_)
+        | Node::TsTypeLit(_)
+        | Node::TsTupleType(_)
+        | Node::TsArrayType(_) => !opts.has_object_or_array_like_siblings,
+        _ => false,
+      }
+    },
   };
 
   fn allow_inline_for_call_expr(node: CallOrOptCallExpr) -> bool {

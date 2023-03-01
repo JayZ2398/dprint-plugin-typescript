@@ -1,5 +1,5 @@
 #!/bin/sh
-export DPRINT_PLUGIN_TYPESCRIPT_SOURCE_PATH=$HOME/work/dprint-plugin-typescript/
+export DPRINT_PLUGIN_TYPESCRIPT_SOURCE_PATH=$HOME/wt/dprint-plugin-typescript/upstream-1
 # Assumes you have set the DPRINT_PLUGIN_TYPESCRIPT_SOURCE_PATH variable to declare where this repo is located.
 # This allows us to call the dprint binary from anywhere.
 if test ! -d $DPRINT_PLUGIN_TYPESCRIPT_SOURCE_PATH;
@@ -30,4 +30,4 @@ export DPRINT_CONFIG=$DPRINT_PLUGIN_TYPESCRIPT_SOURCE_PATH/development/dprint.js
 
 # Run our local dprint.
 cd -;
-$DPRINT --config=$DPRINT_CONFIG $@
+$DPRINT $@
