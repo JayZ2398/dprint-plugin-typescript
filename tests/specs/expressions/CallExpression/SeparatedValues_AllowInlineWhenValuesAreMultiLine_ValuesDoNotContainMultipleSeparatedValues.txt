@@ -1,0 +1,156 @@
+~~ lineWidth: 30, indentWidth: 4, separatedValues.allowInlineWhenValuesAreMultiLine: valuesDoNotContainMultipleSeparatedValues ~~
+== the parent separated-values node should not be multi-line, even when it contains two or more values that are each separated-values, if the child separated-values nodes are not multi-line (because they don't line break) ==
+// array
+a = [{ b }, { c }];
+// array destructure
+const [{ b }, { c }] = a;
+// object
+a = { a: { b }, c: { d } };
+// object destructure
+const { a: { b }, c: { d } } =
+    a;
+// call
+f({ g }, { h });
+// union type
+type A = { b: B } | { c: C };
+
+[expect]
+// array
+a = [{ b }, { c }];
+// array destructure
+const [{ b }, { c }] = a;
+// object
+a = { a: { b }, c: { d } };
+// object destructure
+const { a: { b }, c: { d } } =
+    a;
+// call
+f({ g }, { h });
+// union type
+type A = { b: B } | { c: C };
+
+== the parent separated-values should be multi-line when it contains two or more values that are each separated-values and inline, and the parent node can't be inline ==
+// array
+array = [{inline: "i"}, {inline2: "i"}];
+// array destructure
+const [{inline}, {inline2}] = array;
+// object
+object = { inline: { i }, inline2: { i } };
+// object destructure
+const object = { inline: { i }, inline2: { i } } = object;
+// call expression
+functionCall({inline: "i" }, [ "inline" ]);
+// union type
+type inline = { inline: inline } | { inline2: inline };
+
+[expect]
+// array
+array = [
+    { inline: "i" },
+    { inline2: "i" },
+];
+// array destructure
+const [
+    { inline },
+    { inline2 },
+] = array;
+// object
+object = {
+    inline: { i },
+    inline2: { i },
+};
+// object destructure
+const object = {
+    inline: { i },
+    inline2: { i },
+} = object;
+// call expression
+functionCall(
+    { inline: "i" },
+    ["inline"],
+);
+// union type
+type inline =
+    | { inline: inline }
+    | { inline2: inline };
+
+== the parent separated-values should be multi-line when it contains two or more values that are each separated-values and multi-line, and the parent node can't be inline ==
+// array
+array = [{multiLine: { multiLineAsHeck }}, {multiLine2: { multiLineAsHeck }}];
+// array destructure
+const [{multiLine: { multiLineAsHeck }}, {multiLine2: { multiLineAsHeck }}] = array;
+// object
+object = { multiLine: { multiLineAsHeck }, multiLine2: { multiLineAsHeck } };
+// object destructure
+const object = { multiLine: { multiLineAsHeck }, multiLine2: { multiLineAsHeck } } = object;
+// call expression
+functionCall({multiLine: "multiLineAsHeck" }, [ "multiLineAsHeck", "multiLineAsHeck" ]);
+// union type
+type multiLine = { multiLine: MultiLineAsHeck } | { multiLine2: MultiLineAsHeck };
+
+[expect]
+// array
+array = [
+    {
+        multiLine: {
+            multiLineAsHeck,
+        },
+    },
+    {
+        multiLine2: {
+            multiLineAsHeck,
+        },
+    },
+];
+// array destructure
+const [
+    {
+        multiLine: {
+            multiLineAsHeck,
+        },
+    },
+    {
+        multiLine2: {
+            multiLineAsHeck,
+        },
+    },
+] = array;
+// object
+object = {
+    multiLine: {
+        multiLineAsHeck,
+    },
+    multiLine2: {
+        multiLineAsHeck,
+    },
+};
+// object destructure
+const object = {
+    multiLine: {
+        multiLineAsHeck,
+    },
+    multiLine2: {
+        multiLineAsHeck,
+    },
+} = object;
+// call expression
+functionCall(
+    {
+        multiLine:
+            "multiLineAsHeck",
+    },
+    [
+        "multiLineAsHeck",
+        "multiLineAsHeck",
+    ],
+);
+// union type
+type multiLine =
+    | {
+        multiLine:
+            MultiLineAsHeck;
+    }
+    | {
+        multiLine2:
+            MultiLineAsHeck;
+    };
