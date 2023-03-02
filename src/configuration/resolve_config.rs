@@ -57,7 +57,8 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
   let prefer_hanging_granular = if prefer_hanging { PreferHanging::Always } else { PreferHanging::Never };
   let prefer_single_line_nullable = get_nullable_value(&mut config, "preferSingleLine", &mut diagnostics);
   let prefer_single_line = prefer_single_line_nullable.unwrap_or(false);
-  let multi_line_indent_times = get_value(&mut config, "multiLine.indentTimes", 1, &mut diagnostics);
+  let hanging_indent_times = get_value(&mut config, "hangingIndentTimes", 1, &mut diagnostics);
+  let multi_line_indent_times = get_value(&mut config, "multiLine.indentTimes", hanging_indent_times, &mut diagnostics);
   let space_surrounding_properties = get_value(&mut config, "spaceSurroundingProperties", true, &mut diagnostics);
   let type_literal_separator_kind = get_value(&mut config, "typeLiteral.separatorKind", SemiColonOrComma::SemiColon, &mut diagnostics);
   let quote_style = get_value(&mut config, "quoteStyle", QuoteStyle::AlwaysDouble, &mut diagnostics);
@@ -84,7 +85,6 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
       global_config.indent_width.unwrap_or(RECOMMENDED_GLOBAL_CONFIGURATION.indent_width),
       &mut diagnostics,
     ),
-    hanging_indent_times: get_value(&mut config, "hangingIndentTimes", 1, &mut diagnostics),
     new_line_kind: get_value(
       &mut config,
       "newLineKind",
@@ -179,6 +179,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     variable_statement_prefer_hanging: get_value(&mut config, "variableStatement.preferHanging", prefer_hanging, &mut diagnostics),
     while_statement_prefer_hanging: get_value(&mut config, "whileStatement.preferHanging", prefer_hanging, &mut diagnostics),
     /* indent times */
+    hanging_indent_times,
     multi_line_indent_times,
     object_like_indent_times: get_value(&mut config, "objectLike.indentTimes", multi_line_indent_times, &mut diagnostics),
     array_like_indent_times: get_value(&mut config, "arrayLike.indentTimes", multi_line_indent_times, &mut diagnostics),
