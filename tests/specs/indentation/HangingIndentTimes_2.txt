@@ -1,50 +1,47 @@
-~~ lineWidth: 20, hangingIndentTimes: 2, preferHanging: true ~~
+~~ lineWidth: 30, indentWidth: 4, hangingIndentTimes: 2, preferHanging: true, unionAndIntersectionType.preferHanging: false ~~
 == should indent a hanging parameter list twice ==
 foo(one, two, three, four, five);
 
 [expect]
-foo(one, two, three,
-        four, five);
+foo(one, two, three, four,
+        five);
 
 == should indent a hanging array expression twice ==
 const t = [other, otherTest, other];
 
 [expect]
-const t = [other,
-        otherTest,
+const t = [other, otherTest,
         other];
 
 == should indent a hanging binary expression twice ==
 const x = 123 + 456 - foo - bar + baz;
 
 [expect]
-const x = 123 + 456
-        - foo - bar
-        + baz;
+const x = 123 + 456 - foo
+        - bar + baz;
 
 == should indent a hanging for statement header twice ==
-for (let i = 0; i < 5; i++) {
+for (let imReallyLong = 0; imReallyLong < 5; imReallyLong++) {
     x;
 }
 
 [expect]
-for (let i = 0;
-        i < 5; i++)
+for (let imReallyLong = 0;
+        imReallyLong < 5;
+        imReallyLong++)
 {
     x;
 }
 
 == should indent a hanging arrow function body twice ==
-const a = () => somethingLong;
+const a = () => somethingSufficientlyLong;
 
 [expect]
 const a = () =>
-        somethingLong;
+        somethingSufficientlyLong;
 
 == should indent a multi-line conditional twice ==
-const a = test
-? something
-: somethingElse;
+const a = test ? something : somethingElse;
 
 [expect]
 const a = test
@@ -54,29 +51,27 @@ const a = test
 == should indent a multi-line multi-level conditional twice at every level ==
 const a = a
 ? b
-  ? c
-  : d
-: c;
+? c : d : e;
 
 [expect]
 const a = a
         ? b
                 ? c
                 : d
-        : c;
+        : e;
 
 == should indent a hanging arrow expression twice inside a parameter list  ==
-foo(x => somethingOrRather);
+foo(x => somethingSufficientlyLong);
 
 [expect]
 foo(x =>
-        somethingOrRather);
+        somethingSufficientlyLong);
 
 == should indent a hanging extends / implements clause twice ==
-class SomeClass extends B { }
+class SomeLongClassName extends B { }
 
 [expect]
-class SomeClass
+class SomeLongClassName
         extends B
 {}
 
@@ -86,3 +81,13 @@ const a = someReallyLongExpression;
 [expect]
 const a =
         someReallyLongExpression;
+
+== should indent a union type twice ==
+export type MyUnion = 
+{a: A} & Stuff | {a: A, b: B, c: C};
+
+[expect]
+export type MyUnion =
+        | { a: A } & Stuff
+        | { a: A; b: B;
+                c: C };
