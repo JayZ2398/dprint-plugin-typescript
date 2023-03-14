@@ -1838,7 +1838,7 @@ fn gen_assignment_expr<'a>(node: &'a AssignExpr, context: &mut Context<'a>) -> P
             indent_width,
             multi_line_options: ir_helpers::MultiLineOptions::same_line_start_hanging_indent(
               hanging_indent_times,
-              multi_line_indent_times,
+              0,
             ),
             force_possible_newline_at_start: false,
           },
@@ -1888,7 +1888,7 @@ fn gen_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintIte
     let mut options = if line_per_expression {
       ir_helpers::MultiLineOptions::same_line_no_indent(hanging_indent_times, multi_line_indent_times)
     } else {
-      ir_helpers::MultiLineOptions::maintain_line_breaks(hanging_indent_times, multi_line_indent_times)
+      ir_helpers::MultiLineOptions::maintain_line_breaks(hanging_indent_times, 0)
     };
     options.with_multi_line_indent = if is_parent_bin_expr {
       BoolOrCondition::Bool(false) // let the parent handle the indent
@@ -2801,7 +2801,7 @@ fn gen_sequence_expr<'a>(node: &'a SeqExpr, context: &mut Context<'a>) -> PrintI
       single_line_space_at_start: false,
       single_line_space_at_end: false,
       custom_single_line_separator: None,
-      multi_line_options: ir_helpers::MultiLineOptions::same_line_start_hanging_indent(context.config.hanging_indent_times, context.config.multi_line_indent_times) ,
+      multi_line_options: ir_helpers::MultiLineOptions::same_line_start_hanging_indent(context.config.hanging_indent_times, 0) ,
       force_possible_newline_at_start: false,
       node_sorter: None,
     },
@@ -5157,7 +5157,7 @@ fn gen_var_decl<'a>(node: &'a VarDecl, context: &mut Context<'a>) -> PrintItems 
         single_line_space_at_start: false,
         single_line_space_at_end: false,
         custom_single_line_separator: None,
-        multi_line_options: ir_helpers::MultiLineOptions::same_line_start_hanging_indent(context.config.hanging_indent_times, context.config.multi_line_indent_times) ,
+        multi_line_options: ir_helpers::MultiLineOptions::same_line_start_hanging_indent(context.config.hanging_indent_times, 0) ,
         force_possible_newline_at_start: false,
         node_sorter: None,
       },
@@ -6028,7 +6028,7 @@ fn gen_union_or_intersection_type<'a>(node: UnionOrIntersectionType<'a>, context
       ir_helpers::MultiLineOptions::new_line_start(hanging_indent_times, multi_line_indent_times) 
     }
   } else {
-    ir_helpers::MultiLineOptions::same_line_start_hanging_indent(hanging_indent_times, multi_line_indent_times) 
+    ir_helpers::MultiLineOptions::same_line_start_hanging_indent(hanging_indent_times, 0) 
   };
   let gen_result = ir_helpers::gen_separated_values(
     |is_multi_line_or_hanging_ref| {
